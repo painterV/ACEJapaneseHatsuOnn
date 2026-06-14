@@ -72,6 +72,7 @@
 
       <div class="card identify-card">
         <button class="btn btn-mic btn-mic-big" id="btn-id-mic">🎤 用中文读音说一个词</button>
+        <button class="btn btn-mic-ja btn-mic-big" id="btn-id-mic-ja">🎌 用日语发音说一个词</button>
         <div class="id-listening hidden" id="id-listening">听着…请说出那个词</div>
         <div class="id-type-row">
           <input type="text" id="id-type-input" class="search" placeholder="或：直接输入汉字（中文 / 日文）" />
@@ -164,6 +165,22 @@
         </label>
         <button class="btn btn-primary" id="btn-save-api">保存设置</button>
         <p class="hint small" id="api-note"></p>
+      </div>
+
+      <div class="settings">
+        <h3>🔊 朗读引擎</h3>
+        <label>VOICEVOX 引擎地址（留空 = 用系统语音 Kyoko）
+          <input type="text" id="tts-voicevox-url" placeholder="例如 http://127.0.0.1:50021" autocomplete="off" />
+        </label>
+        <button class="btn" id="btn-tts-local" type="button">用本地引擎 (127.0.0.1:50021)</button>
+        <label>VOICEVOX 说话人
+          <select id="tts-speaker"><option>未启用</option></select>
+        </label>
+        <label>语速 <span id="tts-rate-val" style="color:var(--text)"></span>
+          <input type="range" id="tts-rate" min="0.5" max="1.4" step="0.05" />
+        </label>
+        <button class="btn btn-primary" id="btn-save-tts">保存朗读设置</button>
+        <p class="hint small" id="tts-note"></p>
       </div>
     </section>
   </main>

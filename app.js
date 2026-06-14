@@ -321,7 +321,7 @@ function switchView(name) {
   if (name === "library") renderLibrary();
   if (name === "practice") startPractice();
   if (name === "identify") resetIdentify();
-  if (name === "add") loadApiSettings();
+  if (name === "add") { loadApiSettings(); loadTtsSettings(); }
 }
 
 document.querySelectorAll(".tab").forEach((t) =>
@@ -394,27 +394,82 @@ document.querySelectorAll("#grade-row .btn").forEach((b) =>
   })
 );
 
-/* ---------- TTS ---------- */
+/* ---------- TTS: VOICEVOX (if running) → Web Speech (Kyoko) fallback ---------- */
+
+const LOCAL_VOICEVOX = "http://127.0.0.1:50021"; // engine binds IPv4; use 127.0.0.1 not localhost
+const TTS_VOICEVOX_URL_KEY = "hatsuon.tts.voicevox_url.v1"; // empty = disabled (public-safe default)
+const TTS_SPEAKER_KEY = "hatsuon.tts.speaker.v1"; // VOICEVOX style id
+const TTS_RATE_KEY = "hatsuon.tts.rate.v1";       // shared speed (1.0 = normal)
+const DEFAULT_SPEAKER = "3";
+
+/** Configured VOICEVOX base URL (trimmed, no trailing slash). Empty = disabled. */
+function voicevoxUrl() {
+  return (localStorage.getItem(TTS_VOICEVOX_URL_KEY) || "").trim().replace(/\/+$/, "");
+}
+
+/** Pick the best Japanese Web Speech voice — prefer macOS "Kyoko" (pure). */
+function chooseJaVoice(voices) {
+  return (voices || []).find((v) => /kyoko/i.test(v.name) && /ja/i.test(v.lang)) ||
+         (voices || []).find((v) => /kyoko/i.test(v.name)) ||
+         (voices || []).find((v) => /ja[-_]JP/i.test(v.lang)) ||
+         (voices || []).find((v) => /^ja/i.test(v.lang)) || null;
+}
 
 let jaVoice = null;
-function pickVoice() {
-  const voices = speechSynthesis.getVoices();
-  jaVoice = voices.find((v) => /ja[-_]JP/i.test(v.lang)) ||
-            voices.find((v) => /^ja/i.test(v.lang)) || null;
-}
+function pickVoice() { jaVoice = chooseJaVoice(speechSynthesis.getVoices()); }
 if ("speechSynthesis" in window) {
   pickVoice();
   speechSynthesis.onvoiceschanged = pickVoice;
 }
-/** Speak Japanese; prefer kana (more reliable pronunciation) if present. */
-function speak(phrase, kana) {
+
+const ttsRate = () => Number(localStorage.getItem(TTS_RATE_KEY)) || 1.0;
+
+let _ttsAudio = null;
+function playAudioBlob(blob) {
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (_ttsAudio) { try { _ttsAudio.pause(); } catch (_) {} }
+  const url = URL.createObjectURL(blob);
+  _ttsAudio = new Audio(url);
+  _ttsAudio.onended = () => URL.revokeObjectURL(url);
+  _ttsAudio.play();
+}
+
+/** Synthesize via VOICEVOX at `base`. Returns true on success, false to fall back. */
+async function speakVoicevox(text, base) {
+  try {
+    const speaker = localStorage.getItem(TTS_SPEAKER_KEY) || DEFAULT_SPEAKER;
+    const q = await fetch(`${base}/audio_query?speaker=${speaker}&text=` + encodeURIComponent(text),
+      { method: "POST" });
+    if (!q.ok) return false;
+    const query = await q.json();
+    query.speedScale = ttsRate();
+    const s = await fetch(`${base}/synthesis?speaker=${speaker}`,
+      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(query) });
+    if (!s.ok) return false;
+    playAudioBlob(await s.blob());
+    return true;
+  } catch (_) { return false; }
+}
+
+function speakWebSpeech(text) {
   if (!("speechSynthesis" in window)) { alert("此浏览器不支持语音播放。"); return; }
+  if (_ttsAudio) { try { _ttsAudio.pause(); } catch (_) {} }
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(kana || phrase);
+  const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
   if (jaVoice) u.voice = jaVoice;
-  u.rate = 0.9;
+  u.rate = ttsRate();
   speechSynthesis.speak(u);
+}
+
+/** Speak Japanese; prefer kana (more reliable pronunciation). VOICEVOX first
+ *  when engine is "auto" and reachable, else Web Speech (Kyoko). */
+async function speak(phrase, kana) {
+  const text = kana || phrase;
+  if (!text) return;
+  const base = voicevoxUrl();
+  if (base && await speakVoicevox(text, base)) return;
+  speakWebSpeech(text);
 }
 
 /* ---------- Speech recognition ---------- */
@@ -503,23 +558,31 @@ function resetIdentify() {
   const loading = $("#id-loading");
   loading.classList.add("hidden");
   loading.textContent = "📖 正在加载 JMdict 词典（首次约几秒）…";
-  const btn = $("#btn-id-mic");
-  if (!recognizing) btn.textContent = "🎤 用中文读音说一个词";
+  if (!recognizing) {
+    $("#btn-id-mic").textContent = "🎤 用中文读音说一个词";
+    $("#btn-id-mic-ja").textContent = "🎌 用日语发音说一个词";
+  }
 }
 
-$("#btn-id-mic").addEventListener("click", () => {
+/** Run identify-by-voice in a given recognition language, then look up the word.
+ *  zh-CN: speak the Chinese reading. ja-JP: speak the Japanese pronunciation. */
+function identifyByVoice(lang, btnSel, idleLabel) {
   $("#id-result").classList.add("hidden");
   $("#id-listening").classList.remove("hidden");
   recognize({
-    lang: "zh-CN",
+    lang,
     alternatives: 6,
     onResult: (alts) => { $("#id-listening").classList.add("hidden"); showIdentifyResult(alts); },
     onError: (err) => { $("#id-listening").classList.add("hidden"); showIdentifyResult([], err); },
-    btn: $("#btn-id-mic"),
+    btn: $(btnSel),
     listeningLabel: "🎤 听着…",
-    idleLabel: "🎤 用中文读音说一个词",
+    idleLabel,
   });
-});
+}
+$("#btn-id-mic").addEventListener("click", () =>
+  identifyByVoice("zh-CN", "#btn-id-mic", "🎤 用中文读音说一个词"));
+$("#btn-id-mic-ja").addEventListener("click", () =>
+  identifyByVoice("ja-JP", "#btn-id-mic-ja", "🎌 用日语发音说一个词"));
 
 async function showIdentifyResult(alts, err) {
   $("#id-result").classList.remove("hidden");
@@ -763,6 +826,61 @@ $("#btn-save-api").addEventListener("click", () => {
   localStorage.setItem(modelKey(p), $("#api-model").value || DEFAULT_MODELS[p]);
   $("#btn-save-api").textContent = "✓ 已保存";
   setTimeout(() => { $("#btn-save-api").textContent = "保存设置"; }, 1500);
+});
+
+/* ---- TTS settings (VOICEVOX url / speaker / speed) ---- */
+function loadTtsSettings() {
+  $("#tts-voicevox-url").value = localStorage.getItem(TTS_VOICEVOX_URL_KEY) || "";
+  const rate = ttsRate();
+  $("#tts-rate").value = rate;
+  $("#tts-rate-val").textContent = rate.toFixed(2) + "×";
+  loadVoicevoxSpeakers();
+}
+$("#tts-rate").addEventListener("input", () => {
+  $("#tts-rate-val").textContent = Number($("#tts-rate").value).toFixed(2) + "×";
+});
+$("#btn-tts-local").addEventListener("click", () => {
+  $("#tts-voicevox-url").value = LOCAL_VOICEVOX;
+  loadVoicevoxSpeakers();
+});
+$("#tts-voicevox-url").addEventListener("change", loadVoicevoxSpeakers);
+
+/** Load VOICEVOX speaker list from the URL in the field; note the status. */
+async function loadVoicevoxSpeakers() {
+  const sel = $("#tts-speaker"), note = $("#tts-note");
+  const fallback = jaVoice ? jaVoice.name : "（无日语系统语音）";
+  const base = ($("#tts-voicevox-url").value || "").trim().replace(/\/+$/, "");
+  if (!base) {
+    sel.innerHTML = '<option value="">（未启用）</option>';
+    note.textContent = "未填写 VOICEVOX 地址 → 使用系统语音：" + fallback + "。本地运行了 VOICEVOX 就点上面「用本地引擎」。";
+    return;
+  }
+  try {
+    const resp = await fetch(base + "/speakers", { cache: "no-store" });
+    if (!resp.ok) throw new Error();
+    const speakers = await resp.json();
+    const stored = localStorage.getItem(TTS_SPEAKER_KEY) || DEFAULT_SPEAKER;
+    sel.innerHTML = "";
+    speakers.forEach((sp) => sp.styles.forEach((st) => {
+      const o = document.createElement("option");
+      o.value = st.id; o.textContent = sp.name + " / " + st.name;
+      if (String(st.id) === String(stored)) o.selected = true;
+      sel.appendChild(o);
+    }));
+    note.textContent = "✓ 已连接 VOICEVOX。不可用时回退系统语音：" + fallback;
+  } catch (_) {
+    sel.innerHTML = '<option value="">连接失败（将用系统语音）</option>';
+    note.textContent = "无法连接 " + base + " —— 引擎是否在运行？（HTTPS 页面访问本地 http 引擎可能被浏览器限制。）当前用系统语音：" + fallback;
+  }
+}
+
+$("#btn-save-tts").addEventListener("click", () => {
+  localStorage.setItem(TTS_VOICEVOX_URL_KEY, ($("#tts-voicevox-url").value || "").trim());
+  const spk = $("#tts-speaker").value;
+  if (spk) localStorage.setItem(TTS_SPEAKER_KEY, spk);
+  localStorage.setItem(TTS_RATE_KEY, $("#tts-rate").value);
+  $("#btn-save-tts").textContent = "✓ 已保存";
+  setTimeout(() => { $("#btn-save-tts").textContent = "保存朗读设置"; }, 1500);
 });
 
 /** The lookup instruction shared by every provider. */

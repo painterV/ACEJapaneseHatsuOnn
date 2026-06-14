@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="612" viewBox="0 0 360 612" font-family="-apple-system,'Hiragino Sans','Noto Sans CJK SC',sans-serif">
+  <rect x="0.5" y="0.5" width="359" height="611" rx="26" fill="#0f1115" stroke="#2a2f3a"/>
+  <text x="16" y="34" fill="#e8eaed" font-size="16">発音コーチ <tspan fill="#9aa3b2" font-size="11">日语发音练习</tspan></text>
+  <g font-size="14" text-anchor="middle">
+    <text x="57" y="64" fill="#9aa3b2">练习</text>
+    <text x="139" y="64" fill="#e8eaed">识别</text>
+    <text x="221" y="64" fill="#9aa3b2">词库</text>
+    <text x="303" y="64" fill="#9aa3b2">添加</text>
+  </g>
+  <rect x="102" y="74" width="74" height="2" fill="#ff5a7a"/>
+  <line x1="16" y1="76" x2="344" y2="76" stroke="#252a35"/>
+
+  <text x="16" y="104" fill="#9aa3b2" font-size="12">不知道日语怎么读？用中文读音说出这个词，帮你认出。</text>
+
+  <rect x="16" y="118" width="328" height="150" rx="14" fill="#171a21" stroke="#262b36"/>
+  <rect x="32" y="134" width="296" height="46" rx="12" fill="#ff5a7a"/>
+  <text x="180" y="163" fill="#ffffff" font-size="15" text-anchor="middle">🎤 用中文读音说一个词</text>
+  <rect x="32" y="186" width="296" height="46" rx="12" fill="#5a9cff"/>
+  <text x="180" y="215" fill="#ffffff" font-size="15" text-anchor="middle">🎌 用日语发音说一个词</text>
+  <rect x="32" y="240" width="190" height="16" rx="8" fill="#1f242e" stroke="#2f3540"/>
+  <text x="40" y="252" fill="#9aa3b2" font-size="11">或：直接输入汉字…</text>
+  <rect x="228" y="237" width="58" height="22" rx="8" fill="#1f242e" stroke="#2f3540"/>
+  <text x="257" y="252" fill="#e8eaed" font-size="11" text-anchor="middle">查字典</text>
+  <rect x="292" y="237" width="36" height="22" rx="8" fill="#6b4ea8"/>
+  <text x="310" y="252" fill="#ffffff" font-size="12" text-anchor="middle">🤖</text>
+
+  <rect x="16" y="282" width="328" height="312" rx="14" fill="#171a21" stroke="#262b36"/>
+  <g text-anchor="middle">
+    <text x="180" y="312" fill="#9aa3b2" font-size="13">识别到：<tspan fill="#e8eaed">经济</tspan></text>
+    <text x="180" y="362" fill="#e8eaed" font-size="40" font-weight="500">経済</text>
+    <text x="180" y="392" fill="#5a9cff" font-size="20">けいざい</text>
+    <text x="180" y="412" fill="#9aa3b2" font-size="13" letter-spacing="1">keizai</text>
+    <text x="180" y="440" fill="#e8eaed" font-size="19" font-weight="500">经济</text>
+    <text x="180" y="466" fill="#9aa3b2" font-size="12">英文释义 · JMdict</text>
+  </g>
+  <rect x="32" y="486" width="142" height="46" rx="12" fill="#5a9cff"/>
+  <text x="103" y="514" fill="#ffffff" font-size="14" text-anchor="middle">🔊 听发音</text>
+  <rect x="186" y="486" width="142" height="46" rx="12" fill="#3ecf8e"/>
+  <text x="257" y="514" fill="#05291c" font-size="14" text-anchor="middle">➕ 加入练习</text>
+</svg>

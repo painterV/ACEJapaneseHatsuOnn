@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="560" viewBox="0 0 360 560" font-family="-apple-system,'Hiragino Sans','Noto Sans CJK SC',sans-serif">
+  <rect x="0.5" y="0.5" width="359" height="559" rx="26" fill="#0f1115" stroke="#2a2f3a"/>
+  <text x="16" y="34" fill="#e8eaed" font-size="16">発音コーチ <tspan fill="#9aa3b2" font-size="11">日语发音练习</tspan></text>
+  <g font-size="14" text-anchor="middle">
+    <text x="57" y="64" fill="#9aa3b2">练习</text>
+    <text x="139" y="64" fill="#9aa3b2">识别</text>
+    <text x="221" y="64" fill="#9aa3b2">词库</text>
+    <text x="303" y="64" fill="#e8eaed">添加</text>
+  </g>
+  <rect x="266" y="74" width="74" height="2" fill="#ff5a7a"/>
+  <line x1="16" y1="76" x2="344" y2="76" stroke="#252a35"/>
+
+  <text x="16" y="106" fill="#e8eaed" font-size="15" font-weight="500">🤖 智能查询 API（可选）</text>
+  <text x="16" y="128" fill="#9aa3b2" font-size="12">服务商</text>
+  <rect x="16" y="136" width="328" height="40" rx="10" fill="#1f242e" stroke="#2f3540"/>
+  <text x="30" y="161" fill="#e8eaed" font-size="14">OpenRouter（免费 · 无需信用卡）</text>
+  <text x="326" y="161" fill="#9aa3b2" font-size="12">▾</text>
+  <text x="16" y="196" fill="#9aa3b2" font-size="12">API Key</text>
+  <rect x="16" y="204" width="328" height="40" rx="10" fill="#1f242e" stroke="#2f3540"/>
+  <text x="30" y="229" fill="#6b7280" font-size="14">sk-or-··········</text>
+  <rect x="16" y="254" width="328" height="42" rx="10" fill="#3ecf8e"/>
+  <text x="180" y="281" fill="#05291c" font-size="14" font-weight="500" text-anchor="middle">保存设置</text>
+  <text x="16" y="316" fill="#9aa3b2" font-size="11">Key 只存在本机浏览器，查询时直接发给服务商。</text>
+
+  <line x1="16" y1="332" x2="344" y2="332" stroke="#262b36"/>
+  <text x="16" y="360" fill="#e8eaed" font-size="15" font-weight="500">🔊 朗读引擎</text>
+  <text x="16" y="382" fill="#9aa3b2" font-size="12">VOICEVOX 引擎地址（留空 = 系统语音）</text>
+  <rect x="16" y="390" width="328" height="40" rx="10" fill="#1f242e" stroke="#2f3540"/>
+  <text x="30" y="415" fill="#e8eaed" font-size="14">http://127.0.0.1:50021</text>
+  <rect x="16" y="440" width="160" height="40" rx="10" fill="#1f242e" stroke="#2f3540"/>
+  <text x="96" y="465" fill="#e8eaed" font-size="13" text-anchor="middle">用本地引擎</text>
+  <rect x="184" y="440" width="160" height="40" rx="10" fill="#1f242e" stroke="#2f3540"/>
+  <text x="264" y="465" fill="#e8eaed" font-size="13" text-anchor="middle">四国めたん / ノーマル ▾</text>
+  <rect x="16" y="494" width="328" height="42" rx="10" fill="#3ecf8e"/>
+  <text x="180" y="521" fill="#05291c" font-size="14" font-weight="500" text-anchor="middle">保存朗读设置</text>
+</svg>

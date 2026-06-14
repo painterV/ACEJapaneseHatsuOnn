@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="586" viewBox="0 0 360 586" font-family="-apple-system,'Hiragino Sans','Noto Sans CJK SC',sans-serif">
+  <rect x="0.5" y="0.5" width="359" height="585" rx="26" fill="#0f1115" stroke="#2a2f3a"/>
+  <text x="16" y="34" fill="#e8eaed" font-size="16">発音コーチ <tspan fill="#9aa3b2" font-size="11">日语发音练习</tspan></text>
+  <g font-size="14" text-anchor="middle">
+    <text x="57" y="64" fill="#e8eaed">练习</text>
+    <text x="139" y="64" fill="#9aa3b2">识别</text>
+    <text x="221" y="64" fill="#9aa3b2">词库</text>
+    <text x="303" y="64" fill="#9aa3b2">添加</text>
+  </g>
+  <rect x="20" y="74" width="74" height="2" fill="#ff5a7a"/>
+  <line x1="16" y1="76" x2="344" y2="76" stroke="#252a35"/>
+
+  <rect x="16" y="92" width="328" height="408" rx="16" fill="#171a21" stroke="#262b36"/>
+  <g text-anchor="middle">
+    <text x="180" y="116" fill="#9aa3b2" font-size="12">新词</text>
+    <text x="180" y="172" fill="#e8eaed" font-size="48" font-weight="500">勉強</text>
+    <text x="180" y="204" fill="#5a9cff" font-size="22">べんきょう</text>
+    <text x="180" y="224" fill="#9aa3b2" font-size="13" letter-spacing="1">benkyō</text>
+    <text x="180" y="252" fill="#e8eaed" font-size="20" font-weight="500">学习</text>
+  </g>
+  <rect x="36" y="266" width="288" height="34" rx="10" fill="#2a2118" stroke="#4a3a1d"/>
+  <text x="180" y="288" fill="#ffb454" font-size="12" text-anchor="middle">⚠️ 中文「勉强」=不情愿，日语＝学习</text>
+  <rect x="36" y="312" width="288" height="86" rx="12" fill="#1f242e"/>
+  <text x="50" y="338" fill="#e8eaed" font-size="15">毎日日本語を勉強します。</text>
+  <text x="50" y="360" fill="#5a9cff" font-size="12">まいにちにほんごをべんきょうします。</text>
+  <text x="50" y="382" fill="#9aa3b2" font-size="13">我每天学习日语。</text>
+
+  <g font-size="14" text-anchor="middle">
+    <rect x="16" y="518" width="103" height="48" rx="12" fill="#ff5a7a"/><text x="67" y="547" fill="#ffffff">🎤 说出来</text>
+    <rect x="129" y="518" width="103" height="48" rx="12" fill="#5a9cff"/><text x="180" y="547" fill="#ffffff">🔊 听发音</text>
+    <rect x="242" y="518" width="102" height="48" rx="12" fill="#1f242e" stroke="#2f3540"/><text x="293" y="547" fill="#e8eaed">👁 答案</text>
+  </g>
+</svg>

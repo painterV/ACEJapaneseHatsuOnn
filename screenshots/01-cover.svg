@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="432" viewBox="0 0 360 432" font-family="-apple-system,'Hiragino Sans','Noto Sans CJK SC',sans-serif">
+  <rect x="0.5" y="0.5" width="359" height="431" rx="26" fill="#0f1115" stroke="#2a2f3a"/>
+  <text x="26" y="44" fill="#9aa3b2" font-size="13" letter-spacing="2">発音コーチ · 日语发音练习</text>
+  <text x="26" y="98" fill="#e8eaed" font-size="30" font-weight="500">看到日语汉字</text>
+  <text x="26" y="138" fill="#ff5a7a" font-size="30" font-weight="500">忍不住用中文读？</text>
+  <text x="26" y="176" fill="#c7cdd8" font-size="15">我写了个网页小App治这个 😮‍💨</text>
+  <rect x="26" y="198" width="308" height="44" rx="12" fill="#171a21" stroke="#262b36"/>
+  <text x="42" y="225" fill="#e8eaed" font-size="15">🎤 看汉字 → 自己读 → 自动打分</text>
+  <rect x="26" y="252" width="308" height="44" rx="12" fill="#171a21" stroke="#262b36"/>
+  <text x="42" y="279" fill="#e8eaed" font-size="15">🗣️ 用中文音说 → 认出日语读音</text>
+  <rect x="26" y="306" width="308" height="44" rx="12" fill="#171a21" stroke="#262b36"/>
+  <text x="42" y="333" fill="#e8eaed" font-size="15">🔊 VOICEVOX 真人级朗读</text>
+  <g font-size="12">
+    <rect x="26" y="374" width="62" height="26" rx="13" fill="#2a2118"/><text x="36" y="391" fill="#ffb454">纯网页</text>
+    <rect x="96" y="374" width="50" height="26" rx="13" fill="#162a1f"/><text x="106" y="391" fill="#3ecf8e">免费</text>
+    <rect x="154" y="374" width="104" height="26" rx="13" fill="#16202e"/><text x="164" y="391" fill="#5a9cff">数据本地存储</text>
+  </g>
+</svg>

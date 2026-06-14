@@ -253,5 +253,18 @@ eq("merge updates existing", merged.list.find((e) => e.id === "b").phrase, "井N
 eq("merge skips invalid", merged.list.filter((e) => !e.id).length, 0);
 eq("merge empty incoming", mergeEntries(mEx, []).list.length, 2);
 
+/* ---- TTS voice selection (pure) ---- */
+eq("voice prefers Kyoko", chooseJaVoice([{ name: "Otoya", lang: "ja-JP" }, { name: "Kyoko", lang: "ja-JP" }]).name, "Kyoko");
+eq("voice falls back to ja-JP", chooseJaVoice([{ name: "Otoya", lang: "ja-JP" }]).name, "Otoya");
+eq("voice no japanese -> null", chooseJaVoice([{ name: "Alex", lang: "en-US" }]), null);
+eq("voice empty -> null", chooseJaVoice([]), null);
+
+/* ---- VOICEVOX url (off by default; trims trailing slash) ---- */
+eq("voicevoxUrl default empty (public-safe)", voicevoxUrl(), "");
+localStorage.setItem("hatsuon.tts.voicevox_url.v1", " http://127.0.0.1:50021/ ");
+eq("voicevoxUrl trims + strips slash", voicevoxUrl(), "http://127.0.0.1:50021");
+localStorage.removeItem("hatsuon.tts.voicevox_url.v1");
+eq("voicevoxUrl removed -> empty", voicevoxUrl(), "");
+
 print(`\n${pass} passed, ${fail} failed`);
 if (fail) throw new Error("tests failed");

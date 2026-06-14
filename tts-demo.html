@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+<title>TTS 对比 Demo · 日语发音</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--p2:#1f242e;--text:#e8eaed;--muted:#9aa3b2;--accent:#ff5a7a;--blue:#5a9cff;--good:#3ecf8e;--warn:#ffb454;--bad:#ff6b6b;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"Hiragino Sans","Noto Sans CJK SC",system-ui,sans-serif;padding:20px;max-width:760px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  textarea{width:100%;min-height:64px;padding:12px;border-radius:12px;background:var(--p2);border:1px solid #2f3540;color:var(--text);font-size:18px;resize:vertical}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 18px}
+  .chip{padding:6px 10px;border-radius:999px;background:var(--p2);border:1px solid #2f3540;color:var(--text);font-size:13px;cursor:pointer}
+  .card{background:var(--panel);border:1px solid #262b36;border-radius:14px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #2f3540;color:var(--muted)}
+  .badge.ok{color:var(--good);border-color:#265c43}
+  .badge.no{color:var(--warn);border-color:#4a3a1d}
+  .desc{color:var(--muted);font-size:13px;line-height:1.6;margin:6px 0 12px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button.play{background:var(--blue);border:none;color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;cursor:pointer}
+  button.play:disabled{opacity:.5;cursor:not-allowed}
+  select,input[type=range]{background:var(--p2);border:1px solid #2f3540;color:var(--text);border-radius:8px;padding:6px}
+  .status{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
+  .status.err{color:var(--bad)}
+  .status.busy{color:var(--blue)}
+  code{background:#0c0e12;padding:1px 6px;border-radius:6px;font-size:12px;color:#d6deea}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:var(--blue);font-size:13px}
+  pre{background:#0c0e12;border:1px solid #20242c;border-radius:10px;padding:10px;overflow:auto;font-size:12px;color:#cdd6e2}
+  a{color:var(--blue)}
+</style>
+</head>
+<body>
+  <h1>🔊 日语 TTS 对比 Demo</h1>
+  <div class="sub">输入日语文本，点击各引擎的播放，对比音质。Web Speech 与 Kokoro 无需安装；VOICEVOX、Edge 需要本地小程序（下方有说明，页面会自动检测是否在运行）。</div>
+
+  <textarea id="text">毎日　日本語を　勉強します。</textarea>
+  <div class="presets" id="presets"></div>
+
+  <!-- 1. Web Speech -->
+  <div class="card">
+    <h2>1. Web Speech API <span class="badge" id="b-web">检测中…</span></h2>
+    <div class="desc">浏览器内置，免费、即时、离线。音质较旧，依赖系统日语语音（macOS「Kyoko」）。无音高重音控制。</div>
+    <div class="row">
+      <button class="play" id="web-play">▶ 播放</button>
+      <label style="font-size:13px;color:var(--muted)">语音 <select id="web-voice"></select></label>
+      <label style="font-size:13px;color:var(--muted)">语速 <input type="range" id="web-rate" min="0.5" max="1.3" step="0.1" value="0.9"></label>
+    </div>
+    <div class="status" id="web-status"></div>
+  </div>
+
+  <!-- 2. Kokoro -->
+  <div class="card">
+    <h2>2. Kokoro-82M（浏览器内 / WebGPU·WASM） <span class="badge no" id="b-kokoro">仅英文</span></h2>
+    <div class="desc">⚠️ <b>结论：kokoro-js 浏览器版只内置英文语音 + 英文音素化，不支持日语</b>（无 jf_/jm_ 音色，也没有日语 G2P）。下面用一句<b>英文</b>试听，仅用于确认模型能在浏览器跑——它不适合本应用的日语场景。首次会下载模型（约 80–330 MB，之后缓存）。</div>
+    <div class="row">
+      <button class="play" id="kokoro-play">▶ 播放英文样例</button>
+      <label style="font-size:13px;color:var(--muted)">音色 <select id="kokoro-voice">
+        <option value="af_heart">af_heart（女·en）</option>
+        <option value="am_michael">am_michael（男·en）</option>
+        <option value="bf_emma">bf_emma（女·en-gb）</option>
+      </select></label>
+      <label style="font-size:13px;color:var(--muted)">设备 <select id="kokoro-device"></select></label>
+    </div>
+    <div class="status" id="kokoro-status"></div>
+  </div>
+
+  <!-- 3. VOICEVOX -->
+  <div class="card">
+    <h2>3. VOICEVOX（本地引擎） <span class="badge" id="b-voicevox">检测中…</span></h2>
+    <div class="desc">专为日语打造的开源引擎，音质与自然度最佳，支持<b>音高重音</b>。需在本机运行 VOICEVOX 引擎（端口 50021）。</div>
+    <div class="row">
+      <button class="play" id="voicevox-play">▶ 播放</button>
+      <label style="font-size:13px;color:var(--muted)">说话人 <select id="voicevox-speaker"><option value="1">读取中…</option></select></label>
+    </div>
+    <div class="status" id="voicevox-status"></div>
+    <details><summary>如何启动 VOICEVOX</summary>
+      <pre>1) 下载安装 VOICEVOX：https://voicevox.hiroshiba.jp/
+2) 打开 VOICEVOX 应用（它会在 http://localhost:50021 提供引擎 API）。
+   或仅运行引擎：下载 voicevox_engine，运行 run（默认 50021）。
+3) 回到本页点「检测/播放」。若浏览器报跨域(CORS)，
+   用引擎参数 --cors_policy_mode all 启动。</pre>
+    </details>
+  </div>
+
+  <!-- 4. Edge TTS -->
+  <div class="card">
+    <h2>4. Edge TTS（微软在线语音，经本地代理） <span class="badge" id="b-edge">检测中…</span></h2>
+    <div class="desc">微软神经语音（Nanami/Keita），接近商用音质，体积极小、免费。<b>非开源</b>，需联网，并经一个本地代理避开浏览器跨域。</div>
+    <div class="row">
+      <button class="play" id="edge-play">▶ 播放</button>
+      <label style="font-size:13px;color:var(--muted)">语音 <select id="edge-voice">
+        <option value="ja-JP-NanamiNeural">Nanami（女）</option>
+        <option value="ja-JP-KeitaNeural">Keita（男）</option>
+        <option value="ja-JP-AoiNeural">Aoi（女）</option>
+        <option value="ja-JP-DaichiNeural">Daichi（男）</option>
+      </select></label>
+    </div>
+    <div class="status" id="edge-status"></div>
+    <details><summary>如何启动 Edge 代理</summary>
+      <pre>pip install edge-tts
+python3 tools/edge_proxy.py     # 监听 http://localhost:5050
+# 然后回到本页点播放</pre>
+    </details>
+  </div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const text=()=>$("#text").value.trim();
+function setStatus(id,msg,kind){const el=$(id);el.textContent=msg||"";el.className="status"+(kind?" "+kind:"");}
+function badge(id,ok,label){const b=$(id);b.textContent=label;b.className="badge "+(ok?"ok":"no");}
+
+/* presets */
+const PRESETS=["毎日　日本語を　勉強します。","勉強","大丈夫ですか？","図書館で本を借ります。","友達に手紙を書きました。"];
+const pc=$("#presets");PRESETS.forEach(t=>{const c=document.createElement("span");c.className="chip";c.textContent=t;c.onclick=()=>{$("#text").value=t;};pc.appendChild(c);});
+
+/* ---------- 1. Web Speech ---------- */
+let voices=[];
+function loadVoices(){
+  voices=speechSynthesis.getVoices().filter(v=>/ja|JP/i.test(v.lang));
+  const sel=$("#web-voice");sel.innerHTML="";
+  if(!voices.length){badge("#b-web",false,"无日语语音");setStatus("#web-status","系统没有安装日语语音。","err");return;}
+  badge("#b-web",true,"可用");
+  voices.forEach((v,i)=>{const o=document.createElement("option");o.value=i;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o);});
+}
+if("speechSynthesis" in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}else badge("#b-web",false,"不支持");
+$("#web-play").onclick=()=>{
+  if(!text())return;speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text());u.lang="ja-JP";
+  const v=voices[$("#web-voice").value];if(v)u.voice=v;
+  u.rate=parseFloat($("#web-rate").value);
+  u.onstart=()=>setStatus("#web-status","播放中…","busy");u.onend=()=>setStatus("#web-status","完成");
+  speechSynthesis.speak(u);
+};
+
+/* ---------- shared audio play ---------- */
+let cur;
+function playBlob(blob,statusId){
+  if(cur){cur.pause();}
+  const url=URL.createObjectURL(blob);cur=new Audio(url);
+  cur.onended=()=>{URL.revokeObjectURL(url);setStatus(statusId,"完成");};
+  cur.play();setStatus(statusId,"播放中…","busy");
+}
+
+/* ---------- 2. Kokoro ---------- */
+const devSel=$("#kokoro-device");
+const hasGPU=!!navigator.gpu;
+devSel.innerHTML = (hasGPU?'<option value="webgpu">WebGPU（快）</option>':'')+'<option value="wasm">WASM（兼容）</option>';
+let kokoro=null,kokoroLoading=null;
+async function getKokoro(device){
+  if(kokoro&&kokoro._dev===device)return kokoro;
+  setStatus("#kokoro-status","加载模型中…（首次较慢，请耐心）","busy");
+  const {KokoroTTS}=await import("https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/dist/kokoro.web.js");
+  const tts=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:device==="webgpu"?"fp32":"q8",device});
+  tts._dev=device;kokoro=tts;return tts;
+}
+const KOKORO_SAMPLE="Hello, this is the Kokoro text to speech model running in your browser.";
+$("#kokoro-play").onclick=async()=>{
+  try{
+    const tts=await getKokoro(devSel.value);
+    setStatus("#kokoro-status","合成英文中…","busy");
+    const audio=await tts.generate(KOKORO_SAMPLE,{voice:$("#kokoro-voice").value});
+    const blob=audio.toBlob?audio.toBlob():new Blob([audio.toWav()],{type:"audio/wav"});
+    badge("#b-kokoro",false,"仅英文");playBlob(blob,"#kokoro-status");
+  }catch(e){setStatus("#kokoro-status","失败："+e.message+"（详见控制台）","err");console.error(e);}
+};
+
+/* ---------- 3. VOICEVOX ---------- */
+const VV="http://127.0.0.1:50021";  // 127.0.0.1, not localhost: engine binds IPv4 only
+async function checkVoicevox(){
+  try{
+    const r=await fetch(VV+"/version",{cache:"no-store"});if(!r.ok)throw 0;
+    badge("#b-voicevox",true,"运行中 v"+(await r.json()));
+    const sp=await(await fetch(VV+"/speakers")).json();
+    const sel=$("#voicevox-speaker");sel.innerHTML="";
+    sp.slice(0,12).forEach(s=>s.styles.forEach(st=>{const o=document.createElement("option");o.value=st.id;o.textContent=s.name+" / "+st.name;sel.appendChild(o);}));
+  }catch(e){badge("#b-voicevox",false,"未运行");setStatus("#voicevox-status","未检测到引擎（见下方说明）。");}
+}
+checkVoicevox();
+$("#voicevox-play").onclick=async()=>{
+  if(!text())return;const spk=$("#voicevox-speaker").value;
+  try{
+    setStatus("#voicevox-status","合成中…","busy");
+    const q=await(await fetch(`${VV}/audio_query?speaker=${spk}&text=`+encodeURIComponent(text()),{method:"POST"})).json();
+    const wav=await(await fetch(`${VV}/synthesis?speaker=${spk}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(q)})).blob();
+    playBlob(wav,"#voicevox-status");
+  }catch(e){setStatus("#voicevox-status","失败："+e.message+"（引擎是否运行？跨域是否允许？）","err");}
+};
+
+/* ---------- 4. Edge TTS proxy ---------- */
+const EDGE="http://127.0.0.1:5050";  // 127.0.0.1, not localhost (IPv4)
+async function checkEdge(){
+  try{const r=await fetch(EDGE+"/health",{cache:"no-store"});if(!r.ok)throw 0;badge("#b-edge",true,"代理运行中");}
+  catch(e){badge("#b-edge",false,"代理未运行");setStatus("#edge-status","未检测到代理（见下方说明）。");}
+}
+checkEdge();
+$("#edge-play").onclick=async()=>{
+  if(!text())return;
+  try{
+    setStatus("#edge-status","合成中…","busy");
+    const url=`${EDGE}/tts?voice=${encodeURIComponent($("#edge-voice").value)}&text=`+encodeURIComponent(text());
+    const r=await fetch(url);if(!r.ok)throw new Error("HTTP "+r.status+" "+await r.text());
+    playBlob(await r.blob(),"#edge-status");
+  }catch(e){setStatus("#edge-status","失败："+e.message,"err");}
+};
+</script>
+</body>
+</html>

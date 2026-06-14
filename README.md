@@ -14,6 +14,21 @@ A tiny, no-backend web app to stop reading Japanese kanji with Chinese pronuncia
 - **词库 (Library):** browse / search every phrase, replay audio, see your stats.
 - **添加 (Add):** add a phrase by hand (only the kanji is required).
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="screenshots/02-practice.svg" width="220" alt="练习 Practice" /></td>
+    <td><img src="screenshots/03-identify.svg" width="220" alt="识别 Identify" /></td>
+    <td><img src="screenshots/04-settings.svg" width="220" alt="添加 / 设置 Settings" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>练习 Practice</sub></td>
+    <td align="center"><sub>识别 Identify</sub></td>
+    <td align="center"><sub>添加 / 设置 Settings</sub></td>
+  </tr>
+</table>
+
 ### Identify lookup layers
 1. **Your library** + **`dict.js`** — ~115 curated common words with **Chinese** meanings and
    false-friend (trap) warnings.
@@ -63,22 +78,77 @@ Tell Claude a phrase (you can use the Chinese reading). Claude replies with the 
 pronunciation and appends a full entry to `library.js`. Your practice scores live in
 `localStorage` and are matched by `id`, so adding/editing the library never wipes progress.
 
-## Run it
-Speech recognition + mic need a *secure context*, so open it via `localhost` (not by
-double-clicking the file):
+## Run it locally
+The mic / speech recognition need a *secure context*, so serve it over `localhost` — don't
+just double-click the file.
 
 ```bash
-cd jp-pronounce
-python3 serve.py 8123
-# then open http://localhost:8123 in Chrome (best) or Safari
+git clone https://github.com/painterV/ACEJapaneseHatsuOnn.git
+cd ACEJapaneseHatsuOnn
+python3 serve.py 8123          # any Python 3; no dependencies
+# open http://localhost:8123 in Chrome (best) or Safari
 ```
 
-On first 🎤 tap, allow microphone access.
+On the first 🎤 tap, allow microphone access. That's the whole app — Practice, Identify,
+voice/typing lookup, and the JMdict dictionary all work with **no further setup**. The two
+features below are optional upgrades; everything is stored in your browser, nothing is shared.
+
+### Optional: AI smart-lookup (🤖)
+For words even JMdict doesn't have, the **🤖** button can ask an AI for the reading + Chinese
+meaning + example. You use **your own** key (kept only in your browser's `localStorage`):
+
+1. Get a key — easiest free option is **OpenRouter** (no credit card):
+   [openrouter.ai/keys](https://openrouter.ai/keys). (Other providers below.)
+2. In the app: **添加** tab → **服务商** = your provider → paste the key → pick a **模型** →
+   **保存设置**.
+3. **识别** tab → type or say a word → tap **🤖**.
+
+Providers (pick one in 添加):
+- **OpenRouter** — free, no card. Free models load live; if one errors (rate-limit / busy),
+  pick another or retry.
+- **DeepSeek** — [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys);
+  cheap, strong CJK (needs a small top-up; browser calls may be CORS-limited).
+- **Google Gemini** — free [AI Studio](https://aistudio.google.com/apikey) key (the *AI
+  Studio* path, not Google Cloud, which asks for billing).
+- **Anthropic Claude** — [console.anthropic.com](https://console.anthropic.com); pay-as-you-go.
+
+### Optional: VOICEVOX TTS (best Japanese voice)
+The 🔊 button uses your browser's voice (macOS **"Kyoko"**) by default. For much more natural
+Japanese with correct **pitch accent**, run the free VOICEVOX engine locally:
+
+1. Download & install **VOICEVOX** from [voicevox.hiroshiba.jp](https://voicevox.hiroshiba.jp/)
+   and open the app — it runs the engine on `127.0.0.1:50021`.
+   - On macOS you may see *"Apple could not verify VOICEVOX…"* — that's just Gatekeeper for an
+     unnotarized open-source app. **System Settings → Privacy & Security → Open Anyway.**
+2. In the app: **添加** tab → **🔊 朗读引擎** → click **用本地引擎 (127.0.0.1:50021)** → pick a
+   **说话人** (speaker) and **语速** → **保存朗读设置**.
+3. Now 🔊 uses VOICEVOX, and **automatically falls back to Kyoko** whenever the engine isn't
+   running.
+
+Notes: use `127.0.0.1`, not `localhost` (the engine binds IPv4 only). The engine URL field is
+**empty by default** so it's safe to deploy publicly — leave it empty to just use Web Speech.
+A side-by-side TTS comparison demo is at `tts-demo.html` (plus `tools/edge_proxy.py` for an
+optional Edge-TTS voice).
+
+## Deploying to GitHub Pages (public)
+The app is fully static, so just serve the repo root over Pages (Settings → Pages → branch
+`master`, root). It works under a project subpath (`/ACEJapaneseHatsuOnn/`) because all asset
+paths are relative.
+
+What's safe / what to know for a public deploy:
+- **No secrets ship.** API keys live only in each visitor's browser `localStorage`; the
+  `api_keys` file is git-ignored and never committed. Each visitor enters their **own** AI key
+  (添加 tab). Never bake a key into the build.
+- **VOICEVOX is off by default** — the engine URL setting is empty, so public visitors get
+  **Web Speech (Kyoko)** and never ping `localhost`. Local users opt in via 添加 → 用本地引擎.
+- **Mixed content:** an HTTPS Pages site generally can't reach a local `http://` VOICEVOX
+  engine (browser Private-Network restrictions). VOICEVOX is best used when running the app
+  locally (`serve.py`); for public-wide high-quality TTS, host an engine over HTTPS (or use a
+  serverless TTS proxy) and put that URL in the setting.
+- Optional: delete `tts-demo.html` / `tools/` before publishing if you want a lean deploy.
 
 ## Browser support
 - **Speech recognition** (the 🎤 grading): Chrome / Edge / Safari. Needs internet.
-- **Text-to-speech** (🔊): all modern browsers; quality depends on installed Japanese voices
-  (macOS "Kyoko" works well).
 
 ## Files
 - `index.html` — markup & tabs
