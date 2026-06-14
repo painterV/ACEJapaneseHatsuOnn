@@ -1,6 +1,14 @@
 .DS_Store
 *.log
 
+# secrets — never commit
+api_keys
+api_keys.*
+*.key
+.env
+.env.*
+secrets*
+
 # Build inputs/intermediates for the JMdict dictionary (regenerable via tools/).
 tools/build/
 # Raw uncompressed dictionary (25MB); the app ships the gzipped jmdict.json.gz.

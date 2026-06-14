@@ -155,5 +155,103 @@ eq("jmdict via toJaKanji normalize", jmdictLookupIn(JM, "经济") && jmdictLooku
 eq("jmdict miss -> null", jmdictLookupIn(JM, "你好吗"), null);
 eq("jmdict no map -> null", jmdictLookupIn(null, "学習"), null);
 
+/* ---- Claude API: request body + response parsing (pure) ---- */
+const body = claudeRequestBody("勉強");
+eq("claude body default model", body.model, "claude-opus-4-8");
+eq("claude body max_tokens", body.max_tokens, 1024);
+eq("claude body format type", body.output_config.format.type, "json_schema");
+eq("claude body user role", body.messages[0].role, "user");
+truthy("claude body system is string", typeof body.system === "string" && body.system.length > 10);
+eq("claude body model override", claudeRequestBody("x", "claude-haiku-4-5").model, "claude-haiku-4-5");
+
+const clean = JSON.stringify({
+  phrase: "紹介", kana: "しょうかい", romaji: "shōkai", meaning_zh: "介绍",
+  trap_zh: "", example: "友達を紹介します。", example_kana: "ともだちをしょうかいします。", example_zh: "介绍朋友。",
+});
+eq("parse clean json phrase", parseEntryJson(clean).phrase, "紹介");
+eq("parse clean json source", parseEntryJson(clean).source, "claude");
+eq("parse clean json example", parseEntryJson(clean).example_zh, "介绍朋友。");
+// tolerant of surrounding prose / code fences
+eq("parse fenced json", parseEntryJson("```json\n" + clean + "\n```").phrase, "紹介");
+eq("parse with preamble", parseEntryJson("好的，结果如下：" + clean).kana, "しょうかい");
+// reasoning-model output: <think> … </think> then JSON
+eq("parse strips think block", parseEntryJson("<think>用户想查 {紹介}…</think>\n" + clean).phrase, "紹介");
+// derives romaji from kana when missing
+eq("parse derives romaji", parseEntryJson(JSON.stringify({ phrase: "切手", kana: "きって" })).romaji, "kitte");
+// garbage / missing phrase -> null
+eq("parse garbage -> null", parseEntryJson("not json at all"), null);
+eq("parse no phrase -> null", parseEntryJson(JSON.stringify({ kana: "あ" })), null);
+eq("parse empty -> null", parseEntryJson(""), null);
+
+/* ---- Gemini provider: request body, request builder, text extraction ---- */
+const gbody = geminiRequestBody("勉強");
+eq("gemini mime", gbody.generationConfig.responseMimeType, "application/json");
+eq("gemini user role", gbody.contents[0].role, "user");
+eq("gemini schema required count", gbody.generationConfig.responseSchema.required.length, 8);
+truthy("gemini system instruction", typeof gbody.systemInstruction.parts[0].text === "string");
+
+const gReq = buildAIRequest("gemini", "学習", "gemini-2.0-flash", "KEY123");
+truthy("gemini url has model", gReq.url.indexOf("gemini-2.0-flash:generateContent") > 0);
+eq("gemini auth header", gReq.headers["x-goog-api-key"], "KEY123");
+const aReq = buildAIRequest("anthropic", "学習", "claude-opus-4-8", "KEY123");
+eq("anthropic url", aReq.url, "https://api.anthropic.com/v1/messages");
+eq("anthropic auth header", aReq.headers["x-api-key"], "KEY123");
+
+eq("extract gemini text", extractAIText("gemini", { candidates: [{ content: { parts: [{ text: '{"x":1}' }] } }] }), '{"x":1}');
+eq("extract anthropic text", extractAIText("anthropic", { content: [{ type: "text", text: "hi" }, { type: "tool_use" }] }), "hi");
+eq("extract gemini empty", extractAIText("gemini", {}), "");
+
+/* ---- OpenAI-compatible providers: OpenRouter + DeepSeek ---- */
+const orBody = openaiChatBody("勉強", "some-model", "fallback");
+eq("openai body model", orBody.model, "some-model");
+eq("openai body fallback", openaiChatBody("x", "", "fb").model, "fb");
+eq("openai system msg", orBody.messages[0].role, "system");
+eq("openai user msg", orBody.messages[1].role, "user");
+truthy("openai no response_format", orBody.response_format === undefined);
+
+const orReq = buildAIRequest("openrouter", "学習", "qwen/qwen3:free", "KEY9");
+eq("openrouter url", orReq.url, "https://openrouter.ai/api/v1/chat/completions");
+eq("openrouter auth bearer", orReq.headers.authorization, "Bearer KEY9");
+const dsReq = buildAIRequest("deepseek", "学習", "deepseek-chat", "KEY8");
+eq("deepseek url", dsReq.url, "https://api.deepseek.com/chat/completions");
+eq("deepseek auth bearer", dsReq.headers.authorization, "Bearer KEY8");
+eq("deepseek body model", dsReq.body.model, "deepseek-chat");
+
+eq("extract openrouter text", extractAIText("openrouter", { choices: [{ message: { content: '{"y":2}' } }] }), '{"y":2}');
+eq("extract deepseek text", extractAIText("deepseek", { choices: [{ message: { content: '{"z":3}' } }] }), '{"z":3}');
+eq("extract openrouter empty", extractAIText("openrouter", {}), "");
+
+/* ---- API error extraction (pure) ---- */
+truthy("apierr basic", extractApiError({ error: { message: "Provider returned error" } }).indexOf("Provider returned error") === 0);
+truthy("apierr with code", extractApiError({ error: { message: "rate limited", code: 429 } }).indexOf("429") >= 0);
+truthy("apierr with provider", extractApiError({ error: { message: "x", metadata: { provider_name: "Chutes" } } }).indexOf("Chutes") >= 0);
+truthy("apierr with raw", extractApiError({ error: { message: "x", metadata: { raw: "upstream 502" } } }).indexOf("upstream 502") >= 0);
+eq("apierr none", extractApiError({}), "");
+
+/* ---- OpenRouter free-model filtering (pure) ---- */
+const orModels = [
+  { id: "anthropic/claude-x", pricing: { prompt: "0.000003", completion: "0.000015" } },
+  { id: "deepseek/deepseek-chat:free", pricing: { prompt: "0", completion: "0" } },
+  { id: "meta-llama/llama-3.3-70b:free", pricing: { prompt: "0", completion: "0" } },
+  { id: "qwen/qwen-2.5-72b:free", pricing: { prompt: "0", completion: "0" } },
+  { id: "some/audio-model:free", pricing: { prompt: "0", completion: "0" }, architecture: { output_modalities: ["audio"] } },
+  { id: "no-pricing-model" },
+];
+const orFree = freeOpenRouterModels(orModels);
+eq("free filter drops paid + malformed + audio", orFree.length, 3);
+truthy("free filter cjk first", /deepseek|qwen/.test(orFree[0].id));
+eq("free filter drops audio", orFree.filter((m) => m.id.indexOf("audio") >= 0).length, 0);
+eq("free filter excludes paid", orFree.filter((m) => m.id.indexOf("claude") >= 0).length, 0);
+
+/* ---- import merge (pure) ---- */
+const mEx = [{ id: "a", phrase: "亜" }, { id: "b", phrase: "井" }];
+const mIn = [{ id: "b", phrase: "井NEW" }, { id: "c", phrase: "宇" }, { bad: 1 }];
+const merged = mergeEntries(mEx, mIn);
+eq("merge added count", merged.added, 1); // only 'c' is new ('b' updates, bad skipped)
+eq("merge total size", merged.list.length, 3);
+eq("merge updates existing", merged.list.find((e) => e.id === "b").phrase, "井NEW");
+eq("merge skips invalid", merged.list.filter((e) => !e.id).length, 0);
+eq("merge empty incoming", mergeEntries(mEx, []).list.length, 2);
+
 print(`\n${pass} passed, ${fail} failed`);
 if (fail) throw new Error("tests failed");

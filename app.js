@@ -17,11 +17,37 @@ function loadState() {
   return { userEntries, progress };
 }
 
+/** Persist user entries. Returns true on success; alerts loudly on failure
+ *  (e.g. private-mode browsers where localStorage throws). */
 function saveUserEntries(list) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(list));
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    alert("保存失败：浏览器存储不可用（可能是隐私/无痕模式或存储已满）。\n" + e.message);
+    return false;
+  }
 }
 function saveProgress(p) {
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+  } catch (e) {
+    console.error("saveProgress failed:", e);
+  }
+}
+
+/** Merge incoming entries into existing ones by id (pure). Returns the merged
+ *  list and how many were newly added. Used by the import flow. */
+function mergeEntries(existing, incoming) {
+  const byId = new Map((existing || []).map((e) => [e.id, e]));
+  let added = 0;
+  for (const e of incoming || []) {
+    if (e && e.id && e.phrase) {
+      if (!byId.has(e.id)) added++;
+      byId.set(e.id, e);
+    }
+  }
+  return { list: [...byId.values()], added };
 }
 
 /** Merge seed library (from library.js) with user-added entries, dedup by id. */
@@ -295,6 +321,7 @@ function switchView(name) {
   if (name === "library") renderLibrary();
   if (name === "practice") startPractice();
   if (name === "identify") resetIdentify();
+  if (name === "add") loadApiSettings();
 }
 
 document.querySelectorAll(".tab").forEach((t) =>
@@ -530,31 +557,47 @@ async function showIdentifyResult(alts, err) {
   heard = heard || alts[0] || "";
   $("#id-heard-text").textContent = heard || ($("#id-heard-text").textContent);
 
-  const found = $("#id-found"), notfound = $("#id-notfound");
-  if (hit) {
-    identified = hit;
-    found.classList.remove("hidden");
-    notfound.classList.add("hidden");
-    $("#id-phrase").textContent = hit.phrase;
-    $("#id-kana").textContent = hit.kana || "";
-    $("#id-romaji").textContent = hit.romaji || kanaToRomaji(hit.kana || "");
-    $("#id-meaning").textContent = hit.meaning_zh || "";
-    const src = $("#id-source");
-    if (hit.source === "jmdict") { src.textContent = "英文释义 · JMdict"; src.classList.remove("hidden"); }
-    else src.classList.add("hidden");
-    const trap = $("#id-trap");
-    if (hit.trap_zh) { trap.textContent = "⚠️ " + hit.trap_zh; trap.classList.remove("hidden"); }
-    else trap.classList.add("hidden");
-    const already = inLibrary(hit.phrase);
-    $("#id-inlib").classList.toggle("hidden", !already);
-    $("#id-add").classList.toggle("hidden", already);
-    speak(hit.phrase, hit.kana); // auto-play the correct pronunciation
-  } else {
+  if (hit) renderFound(hit);
+  else {
     identified = null;
-    found.classList.add("hidden");
-    notfound.classList.remove("hidden");
+    $("#id-found").classList.add("hidden");
+    $("#id-notfound").classList.remove("hidden");
     $("#id-nf-word").textContent = heard || "（未识别）";
   }
+}
+
+/** Render a resolved entry (from dictionary or Claude) into the result card. */
+function renderFound(hit) {
+  identified = hit;
+  $("#id-found").classList.remove("hidden");
+  $("#id-notfound").classList.add("hidden");
+  $("#id-phrase").textContent = hit.phrase;
+  $("#id-kana").textContent = hit.kana || "";
+  $("#id-romaji").textContent = hit.romaji || kanaToRomaji(hit.kana || "");
+  $("#id-meaning").textContent = hit.meaning_zh || "";
+
+  const src = $("#id-source");
+  const label = hit.source === "jmdict" ? "英文释义 · JMdict"
+    : hit.source === "claude" ? "由 Claude 生成" : "";
+  if (label) { src.textContent = label; src.classList.remove("hidden"); }
+  else src.classList.add("hidden");
+
+  const trap = $("#id-trap");
+  if (hit.trap_zh) { trap.textContent = "⚠️ " + hit.trap_zh; trap.classList.remove("hidden"); }
+  else trap.classList.add("hidden");
+
+  const exBox = $("#id-example");
+  if (hit.example) {
+    $("#id-ex").textContent = hit.example;
+    $("#id-ex-kana").textContent = hit.example_kana || "";
+    $("#id-ex-zh").textContent = hit.example_zh || "";
+    exBox.classList.remove("hidden");
+  } else exBox.classList.add("hidden");
+
+  const already = inLibrary(hit.phrase);
+  $("#id-inlib").classList.toggle("hidden", !already);
+  $("#id-add").classList.toggle("hidden", already);
+  speak(hit.phrase, hit.kana); // auto-play the correct pronunciation
 }
 
 $("#id-play").addEventListener("click", () => identified && speak(identified.phrase, identified.kana));
@@ -590,6 +633,338 @@ $("#id-copy").addEventListener("click", () => {
     );
   }
 });
+
+/* ---- type-to-identify: look up typed kanji (Chinese or Japanese) ---- */
+function runTypeLookup() {
+  const text = $("#id-type-input").value.trim();
+  if (text) showIdentifyResult([text]);
+}
+$("#btn-id-type").addEventListener("click", runTypeLookup);
+$("#id-type-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runTypeLookup();
+});
+$("#btn-id-type-claude").addEventListener("click", () => {
+  const text = $("#id-type-input").value.trim();
+  if (text) askAI(text);
+});
+$("#id-nf-claude").addEventListener("click", () =>
+  askAI($("#id-nf-word").textContent || ""));
+
+/* ---------- AI smart-lookup: Gemini (free) or Anthropic ---------- */
+
+const PROVIDER_KEY = "hatsuon.provider.v1";
+const DEFAULT_PROVIDER = "openrouter";
+const DEFAULT_MODELS = {
+  anthropic: "claude-opus-4-8",
+  gemini: "gemini-2.0-flash",
+  openrouter: "qwen/qwen3-next-80b-a3b-instruct:free",
+  deepseek: "deepseek-chat",
+};
+const MODELS = {
+  openrouter: [
+    ["qwen/qwen3-next-80b-a3b-instruct:free", "Qwen3 Next 80B（免费 · 中日文强 · 推荐）"],
+    ["meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B（免费）"],
+    ["google/gemma-4-31b-it:free", "Gemma 4 31B（免费）"],
+  ],
+  gemini: [
+    ["gemini-2.0-flash", "Gemini 2.0 Flash（免费 · 推荐）"],
+    ["gemini-2.5-flash", "Gemini 2.5 Flash"],
+    ["gemini-1.5-flash", "Gemini 1.5 Flash"],
+  ],
+  deepseek: [
+    ["deepseek-chat", "DeepSeek V3（推荐）"],
+    ["deepseek-reasoner", "DeepSeek R1（推理 · 更慢）"],
+  ],
+  anthropic: [
+    ["claude-opus-4-8", "Claude Opus 4.8（最强）"],
+    ["claude-sonnet-4-6", "Claude Sonnet 4.6"],
+    ["claude-haiku-4-5", "Claude Haiku 4.5（最便宜）"],
+  ],
+};
+const NOTES = {
+  openrouter: "OpenRouter Key 来自 openrouter.ai/keys —— 注册即用、无需信用卡。模型列表会自动从 OpenRouter 加载当前真正免费的模型（有速率限制）；选好后记得点「保存设置」。Key 只存在本机浏览器。",
+  deepseek: "DeepSeek Key 来自 platform.deepseek.com/api_keys —— 需充值但很便宜，中日文很强。Key 只存在本机浏览器。注意：浏览器直连若报跨域(CORS)错误，则需要自建代理。",
+  gemini: "Gemini Key 来自 aistudio.google.com/apikey（AI Studio，非 Google Cloud）—— 免费额度无需信用卡。Key 只存在本机浏览器，查询时直接发送给 Google。",
+  anthropic: "Anthropic Key（sk-ant-…）来自 console.anthropic.com，需充值、按用量计费。Key 只存在本机浏览器，查询时直接发送给 Anthropic。",
+};
+
+const keyKey = (p) => "hatsuon.apikey." + p + ".v1";
+const modelKey = (p) => "hatsuon.model." + p + ".v1";
+
+function fillModelSelect(options, stored) {
+  const sel = $("#api-model");
+  sel.innerHTML = "";
+  for (const [val, label] of options) {
+    const o = document.createElement("option");
+    o.value = val; o.textContent = label;
+    if (val === stored) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+function populateModels(provider) {
+  const stored = localStorage.getItem(modelKey(provider)) || DEFAULT_MODELS[provider];
+  fillModelSelect(MODELS[provider], stored); // static list (fallback while loading)
+  if (provider === "openrouter") loadOpenRouterModels(stored);
+}
+
+/** Filter OpenRouter's /models payload to truly-free models, CJK-capable first (pure). */
+function freeOpenRouterModels(list) {
+  const isFree = (m) => m && m.pricing &&
+    Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0;
+  // keep only models that output text (drops free audio/image-gen models)
+  const isText = (m) => {
+    const out = m.architecture && m.architecture.output_modalities;
+    return !out || out.indexOf("text") >= 0;
+  };
+  const rank = (id) => (/deepseek|qwen|gemini|gemma|yi|glm|minimax/i.test(id) ? 0 : 1);
+  return (list || []).filter((m) => isFree(m) && isText(m)).sort((a, b) => {
+    const r = rank(a.id) - rank(b.id);
+    return r !== 0 ? r : (a.id < b.id ? -1 : 1);
+  });
+}
+
+/** Fetch the live free-model list from OpenRouter and repopulate the dropdown.
+ *  Falls back silently to the static list on any failure. */
+async function loadOpenRouterModels(stored) {
+  try {
+    const resp = await fetch("https://openrouter.ai/api/v1/models");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    const free = freeOpenRouterModels(data.data);
+    if (!free.length) return;
+    fillModelSelect(free.map((m) => [m.id, (m.name || m.id) + "（免费）"]), stored);
+  } catch (e) {
+    console.warn("OpenRouter model list fetch failed; using static list:", e);
+  }
+}
+
+function loadApiSettings() {
+  const provider = localStorage.getItem(PROVIDER_KEY) || DEFAULT_PROVIDER;
+  $("#api-provider").value = provider;
+  $("#api-key").value = localStorage.getItem(keyKey(provider)) || "";
+  populateModels(provider);
+  $("#api-note").textContent = NOTES[provider];
+}
+
+$("#api-provider").addEventListener("change", () => {
+  const p = $("#api-provider").value;
+  $("#api-key").value = localStorage.getItem(keyKey(p)) || "";
+  populateModels(p);
+  $("#api-note").textContent = NOTES[p];
+});
+
+$("#btn-save-api").addEventListener("click", () => {
+  const p = $("#api-provider").value;
+  localStorage.setItem(PROVIDER_KEY, p);
+  const key = $("#api-key").value.trim();
+  if (key) localStorage.setItem(keyKey(p), key);
+  else localStorage.removeItem(keyKey(p));
+  localStorage.setItem(modelKey(p), $("#api-model").value || DEFAULT_MODELS[p]);
+  $("#btn-save-api").textContent = "✓ 已保存";
+  setTimeout(() => { $("#btn-save-api").textContent = "保存设置"; }, 1500);
+});
+
+/** The lookup instruction shared by every provider. */
+const SYSTEM_PROMPT =
+  "你是给中文母语者用的日语词典。用户给你一个词，它可能是日语汉字原文，" +
+  "也可能是学习者按中文读音/中文写法记下的、对应某个日语词。" +
+  "请判断用户想查的日语词，并给出：标准日语写法(phrase)、平假名读音(kana)、" +
+  "罗马音(romaji)、简体中文意思(meaning_zh)、若该词容易被中文读法误解则给出提示(trap_zh，否则空字符串)、" +
+  "一个使用该词的日语例句(example)、例句的假名读音(example_kana)、例句的中文翻译(example_zh)。" +
+  "只输出一个 JSON 对象本身，不要使用代码块标记(```)、不要任何解释或多余文字。" +
+  "所有字段都要填（trap_zh 可为空字符串）。";
+
+const FIELDS = ["phrase", "kana", "romaji", "meaning_zh", "trap_zh", "example", "example_kana", "example_zh"];
+
+/** Anthropic Messages API request body (pure). */
+function claudeRequestBody(word, model) {
+  const props = {};
+  for (const f of FIELDS) props[f] = { type: "string" };
+  return {
+    model: model || DEFAULT_MODELS.anthropic,
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: "要查的词：" + word }],
+    output_config: {
+      format: { type: "json_schema", schema: { type: "object", additionalProperties: false, properties: props, required: FIELDS } },
+    },
+  };
+}
+
+/** OpenAI-compatible chat request body — used by OpenRouter and DeepSeek (pure).
+ *  No response_format: many models reject it; the prompt + tolerant parser
+ *  (parseEntryJson strips prose / code-fences / <think>) handle JSON extraction. */
+function openaiChatBody(word, model, fallbackModel) {
+  return {
+    model: model || fallbackModel,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: "要查的词：" + word },
+    ],
+  };
+}
+
+/** Google Gemini generateContent request body (pure). */
+function geminiRequestBody(word) {
+  const props = {};
+  for (const f of FIELDS) props[f] = { type: "STRING" };
+  return {
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: "user", parts: [{ text: "要查的词：" + word }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: { type: "OBJECT", properties: props, required: FIELDS, propertyOrdering: FIELDS },
+    },
+  };
+}
+
+/** Build the HTTP request (url/headers/body) for a provider (pure). */
+function buildAIRequest(provider, word, model, key) {
+  if (provider === "gemini") {
+    return {
+      url: "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: geminiRequestBody(word),
+    };
+  }
+  if (provider === "openrouter") {
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      headers: { "content-type": "application/json", authorization: "Bearer " + key },
+      body: openaiChatBody(word, model, DEFAULT_MODELS.openrouter),
+    };
+  }
+  if (provider === "deepseek") {
+    return {
+      url: "https://api.deepseek.com/chat/completions",
+      headers: { "content-type": "application/json", authorization: "Bearer " + key },
+      body: openaiChatBody(word, model, DEFAULT_MODELS.deepseek),
+    };
+  }
+  return {
+    url: "https://api.anthropic.com/v1/messages",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: claudeRequestBody(word, model),
+  };
+}
+
+/** Pull the model's text output from a provider response (pure). */
+function extractAIText(provider, data) {
+  if (provider === "gemini") {
+    const parts = (data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts) || [];
+    return parts.map((p) => p.text || "").join("");
+  }
+  if (provider === "openrouter" || provider === "deepseek") {
+    return (data && data.choices && data.choices[0] &&
+      data.choices[0].message && data.choices[0].message.content) || "";
+  }
+  return (data && data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+}
+
+/** Parse a provider's text response into a normalized entry (pure). */
+function parseEntryJson(text) {
+  if (!text) return null;
+  // strip code fences and reasoning-model <think> blocks before extracting
+  const cleaned = String(text)
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```(?:json)?/gi, "")
+    .trim();
+  let obj = null;
+  try { obj = JSON.parse(cleaned); }
+  catch (_) {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) { try { obj = JSON.parse(m[0]); } catch (_) {} }
+  }
+  if (!obj || typeof obj !== "object" || !obj.phrase) return null;
+  const s = (v) => (v == null ? "" : String(v));
+  return {
+    phrase: s(obj.phrase),
+    kana: s(obj.kana),
+    romaji: s(obj.romaji) || kanaToRomaji(s(obj.kana)),
+    meaning_zh: s(obj.meaning_zh),
+    trap_zh: s(obj.trap_zh),
+    example: s(obj.example),
+    example_kana: s(obj.example_kana),
+    example_zh: s(obj.example_zh),
+    source: "claude",
+  };
+}
+
+/** Extract a human-readable error from a provider error payload (pure). */
+function extractApiError(data) {
+  const e = data && data.error;
+  if (!e) return "";
+  let msg = e.message || (e.code != null ? String(e.code) : "未知错误");
+  if (e.code != null && String(e.code) !== msg) msg += "（" + e.code + "）";
+  const md = e.metadata;
+  if (md) {
+    if (md.provider_name) msg += " · " + md.provider_name;
+    if (md.raw) {
+      const raw = typeof md.raw === "string" ? md.raw : JSON.stringify(md.raw);
+      msg += "：" + raw.slice(0, 200);
+    }
+  }
+  return msg;
+}
+
+function aiConfig() {
+  const provider = localStorage.getItem(PROVIDER_KEY) || DEFAULT_PROVIDER;
+  return {
+    provider,
+    key: localStorage.getItem(keyKey(provider)) || "",
+    model: localStorage.getItem(modelKey(provider)) || DEFAULT_MODELS[provider],
+  };
+}
+
+async function askAI(word) {
+  word = (word || "").trim();
+  if (!word) return;
+  const { provider, key, model } = aiConfig();
+  if (!key) {
+    alert("请先在「添加」标签里配置 API Key（推荐免费的 Gemini）。");
+    switchView("add");
+    return;
+  }
+
+  $("#id-result").classList.remove("hidden");
+  $("#id-heard-text").textContent = word;
+  $("#id-found").classList.add("hidden");
+  $("#id-notfound").classList.add("hidden");
+  const loading = $("#id-loading");
+  loading.textContent = "🤖 查询中…";
+  loading.classList.remove("hidden");
+
+  try {
+    const req = buildAIRequest(provider, word, model, key);
+    const resp = await fetch(req.url, {
+      method: "POST",
+      headers: req.headers,
+      body: JSON.stringify(req.body),
+    });
+    if (!resp.ok) {
+      let msg = "HTTP " + resp.status;
+      try { msg = extractApiError(await resp.json()) || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const entry = parseEntryJson(extractAIText(provider, data));
+    if (!entry) throw new Error(extractApiError(data) || "无法解析返回结果");
+    loading.classList.add("hidden");
+    renderFound(entry);
+  } catch (e) {
+    const hint = provider === "openrouter" ? "（免费模型偶尔不稳定，可重试或在「添加」里换一个模型）" : "";
+    loading.textContent = "查询失败：" + e.message + hint;
+    $("#id-found").classList.add("hidden");
+    $("#id-notfound").classList.add("hidden");
+  }
+}
 
 /* ---------- Library ---------- */
 
@@ -674,6 +1049,30 @@ $("#btn-export").addEventListener("click", () => {
   a.download = "hatsuon-library.json";
   a.click();
   URL.revokeObjectURL(a.href);
+});
+
+$("#btn-import").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const arr = JSON.parse(reader.result);
+      if (!Array.isArray(arr)) throw new Error("文件格式不对（应为词条数组）");
+      const { userEntries } = loadState();
+      const { list, added } = mergeEntries(userEntries, arr);
+      if (saveUserEntries(list)) {
+        alert(`已导入 ${arr.length} 条，其中新增 ${added} 条。`);
+        renderLibrary();
+      }
+    } catch (e) {
+      alert("导入失败：" + e.message);
+    }
+  };
+  reader.onerror = () => alert("读取文件失败。");
+  reader.readAsText(file);
+  ev.target.value = ""; // allow re-importing the same file
 });
 
 $("#btn-reset-progress").addEventListener("click", () => {

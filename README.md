@@ -7,9 +7,10 @@ A tiny, no-backend web app to stop reading Japanese kanji with Chinese pronuncia
   example sentence. Tap 🔊 to hear the correct pronunciation. Weak words come back sooner
   (lightweight SM-2 spaced repetition).
 - **识别 (Identify):** the reverse direction — when you *don't* know the Japanese reading,
-  tap 🎤 and say the word using its **Chinese** pronunciation. Recognition runs in `zh-CN`,
-  captures the kanji you spoke, looks it up, shows the correct Japanese reading + meaning, and
-  auto-plays the audio. Tap **加入练习** to drop it into your practice library.
+  either tap 🎤 and **say** the word using its **Chinese** pronunciation (recognition runs in
+  `zh-CN`), or **type** the kanji directly (Chinese or Japanese) in the input box. The app
+  captures the word, looks it up, shows the correct Japanese reading + meaning, and auto-plays
+  the audio. Tap **加入练习** to drop it into your practice library.
 - **词库 (Library):** browse / search every phrase, replay audio, see your stats.
 - **添加 (Add):** add a phrase by hand (only the kanji is required).
 
@@ -19,6 +20,24 @@ A tiny, no-backend web app to stop reading Japanese kanji with Chinese pronuncia
 2. **JMdict** (`jmdict.json.gz`, ~200k entries) — lazy-loaded fallback giving the correct
    reading + **English** gloss for essentially any word. Loaded once per session (gzipped
    ~8.7 MB, decompressed in the browser via `DecompressionStream`).
+3. **AI (optional)** — tap **🤖 Claude** (or 🤖 用 Claude 查询 when a word isn't found) to ask
+   an AI for any word, with a Chinese meaning + example sentence. In the **添加** tab pick a
+   provider and paste a key:
+   - **OpenRouter** (default, recommended) — **no credit card**; key from
+     [openrouter.ai/keys](https://openrouter.ai/keys). Models tagged `:free` (DeepSeek, Qwen,
+     Gemini-exp, Llama) are free with rate limits. Calls `openrouter.ai/api/v1/chat/completions`.
+   - **DeepSeek** — official API; key from
+     [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys). Cheap, strong at
+     CJK. Calls `api.deepseek.com/chat/completions` (OpenAI-compatible). Browser calls may be
+     CORS-blocked — if so, a small proxy is needed.
+   - **Google Gemini** — free AI-Studio tier; key from
+     [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (the AI Studio path, *not*
+     Google Cloud / Vertex, which asks for billing). Calls `generativelanguage.googleapis.com`.
+   - **Anthropic Claude** — pay-as-you-go; key from console.anthropic.com. Calls
+     `api.anthropic.com` with the `anthropic-dangerous-direct-browser-access` header.
+
+   All request JSON output so replies parse reliably. Keys are stored only in your browser's
+   `localStorage` (per provider) and sent directly to that provider.
 
 The lookup bridges the simplified-Chinese → Japanese-kanji gap (say 学习 → finds 学習): the
 curated layer uses per-entry keys plus a learned character map, and the JMdict layer is

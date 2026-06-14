@@ -73,6 +73,11 @@
       <div class="card identify-card">
         <button class="btn btn-mic btn-mic-big" id="btn-id-mic">🎤 用中文读音说一个词</button>
         <div class="id-listening hidden" id="id-listening">听着…请说出那个词</div>
+        <div class="id-type-row">
+          <input type="text" id="id-type-input" class="search" placeholder="或：直接输入汉字（中文 / 日文）" />
+          <button class="btn" id="btn-id-type">查字典</button>
+          <button class="btn btn-claude" id="btn-id-type-claude">🤖 Claude</button>
+        </div>
       </div>
 
       <div class="card id-result hidden" id="id-result">
@@ -88,6 +93,11 @@
           <div class="meaning" id="id-meaning"></div>
           <div class="id-source hidden" id="id-source"></div>
           <div class="trap hidden" id="id-trap"></div>
+          <div class="example hidden" id="id-example">
+            <div class="ex-jp" id="id-ex"></div>
+            <div class="ex-kana" id="id-ex-kana"></div>
+            <div class="ex-zh" id="id-ex-zh"></div>
+          </div>
           <div class="controls">
             <button class="btn btn-play" id="id-play">🔊 听发音</button>
             <button class="btn btn-primary" id="id-add">➕ 加入练习</button>
@@ -97,10 +107,12 @@
 
         <div id="id-notfound" class="hidden">
           <div class="id-notfound-msg">
-            字典里还没有 <b id="id-nf-word"></b>。<br />
-            把它发给 Claude，让我补全读音和意思后加入词库。
+            字典里还没有 <b id="id-nf-word"></b>。
           </div>
-          <button class="btn" id="id-copy">📋 复制这个词</button>
+          <div class="controls">
+            <button class="btn btn-claude" id="id-nf-claude">🤖 用 Claude 查询</button>
+            <button class="btn" id="id-copy">📋 复制这个词</button>
+          </div>
         </div>
       </div>
 
@@ -128,8 +140,30 @@
         <button type="submit" class="btn btn-primary">加入词库</button>
       </form>
       <div class="export-row">
-        <button class="btn" id="btn-export">导出我的词库 (JSON)</button>
+        <button class="btn" id="btn-export">导出词库 (JSON)</button>
+        <button class="btn" id="btn-import">导入词库</button>
         <button class="btn" id="btn-reset-progress">重置练习进度</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json,.json" hidden />
+
+      <div class="settings">
+        <h3>🤖 智能查询 API（可选，用于「识别」）</h3>
+        <label>服务商
+          <select id="api-provider">
+            <option value="openrouter">OpenRouter（免费模型 · 无需信用卡 · 推荐）</option>
+            <option value="deepseek">DeepSeek（官方 · 便宜 · 中日文强）</option>
+            <option value="gemini">Google Gemini（AI Studio 免费额度）</option>
+            <option value="anthropic">Anthropic Claude（按量付费）</option>
+          </select>
+        </label>
+        <label>API Key
+          <input type="password" id="api-key" placeholder="API Key" autocomplete="off" />
+        </label>
+        <label>模型
+          <select id="api-model"></select>
+        </label>
+        <button class="btn btn-primary" id="btn-save-api">保存设置</button>
+        <p class="hint small" id="api-note"></p>
       </div>
     </section>
   </main>
