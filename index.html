@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>発音コーチ · 日语发音练习</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>発音コーチ <span class="sub">日语发音练习</span></h1>
+    <nav class="tabs">
+      <button class="tab active" data-view="practice">练习</button>
+      <button class="tab" data-view="identify">识别</button>
+      <button class="tab" data-view="library">词库</button>
+      <button class="tab" data-view="add">添加</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ PRACTICE ============ -->
+    <section id="view-practice" class="view active">
+      <div id="practice-empty" class="empty hidden">
+        词库是空的。去「添加」一个短语，或让 Claude 帮你加。
+      </div>
+
+      <div id="practice-card" class="card practice-card hidden">
+        <div class="due-badge" id="due-badge"></div>
+
+        <div class="phrase-big" id="p-phrase">勉強</div>
+
+        <div class="reveal hidden" id="p-reveal">
+          <div class="reading">
+            <span class="kana" id="p-kana">べんきょう</span>
+            <span class="romaji" id="p-romaji">benkyō</span>
+          </div>
+          <div class="meaning" id="p-meaning">学习</div>
+          <div class="trap hidden" id="p-trap"></div>
+          <div class="example" id="p-example-box">
+            <div class="ex-jp" id="p-ex"></div>
+            <div class="ex-kana" id="p-ex-kana"></div>
+            <div class="ex-zh" id="p-ex-zh"></div>
+          </div>
+        </div>
+
+        <div class="speech-result hidden" id="speech-result">
+          <div class="heard">听到：<b id="heard-text"></b></div>
+          <div class="score-bar"><div class="score-fill" id="score-fill"></div></div>
+          <div class="score-label" id="score-label"></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-mic" id="btn-mic">🎤 说出来</button>
+          <button class="btn btn-play" id="btn-play">🔊 听正确发音</button>
+          <button class="btn btn-reveal" id="btn-reveal">👁 显示答案</button>
+        </div>
+
+        <div class="grade hidden" id="grade-row">
+          <button class="btn grade-again" data-grade="again">😵 不会</button>
+          <button class="btn grade-hard"  data-grade="hard">😐 勉强</button>
+          <button class="btn grade-good"  data-grade="good">🙂 会了</button>
+          <button class="btn grade-easy"  data-grade="easy">😎 太简单</button>
+        </div>
+      </div>
+
+      <div class="practice-progress" id="practice-progress"></div>
+    </section>
+
+    <!-- ============ IDENTIFY ============ -->
+    <section id="view-identify" class="view">
+      <p class="hint">不知道日语怎么读？用中文读音说出这个词，我来帮你认出正确的日语发音。</p>
+
+      <div class="card identify-card">
+        <button class="btn btn-mic btn-mic-big" id="btn-id-mic">🎤 用中文读音说一个词</button>
+        <div class="id-listening hidden" id="id-listening">听着…请说出那个词</div>
+      </div>
+
+      <div class="card id-result hidden" id="id-result">
+        <div class="id-heard">识别到：<b id="id-heard-text"></b></div>
+        <div class="id-loading hidden" id="id-loading">📖 正在加载 JMdict 词典（首次约几秒）…</div>
+
+        <div id="id-found" class="hidden">
+          <div class="phrase-big" id="id-phrase"></div>
+          <div class="reading">
+            <span class="kana" id="id-kana"></span>
+            <span class="romaji" id="id-romaji"></span>
+          </div>
+          <div class="meaning" id="id-meaning"></div>
+          <div class="id-source hidden" id="id-source"></div>
+          <div class="trap hidden" id="id-trap"></div>
+          <div class="controls">
+            <button class="btn btn-play" id="id-play">🔊 听发音</button>
+            <button class="btn btn-primary" id="id-add">➕ 加入练习</button>
+          </div>
+          <div class="id-inlib hidden" id="id-inlib">✓ 已在你的词库中</div>
+        </div>
+
+        <div id="id-notfound" class="hidden">
+          <div class="id-notfound-msg">
+            字典里还没有 <b id="id-nf-word"></b>。<br />
+            把它发给 Claude，让我补全读音和意思后加入词库。
+          </div>
+          <button class="btn" id="id-copy">📋 复制这个词</button>
+        </div>
+      </div>
+
+      <p class="attribution">释义来自 <a href="https://github.com/yomidevs/jmdict-yomitan" target="_blank" rel="noopener">JMdict</a>（英文，CC BY-SA 4.0）；常见词的中文释义为内置。</p>
+    </section>
+
+    <!-- ============ LIBRARY ============ -->
+    <section id="view-library" class="view">
+      <input type="search" id="lib-search" class="search" placeholder="搜索 汉字 / 假名 / 中文意思…" />
+      <div id="lib-list" class="lib-list"></div>
+    </section>
+
+    <!-- ============ ADD ============ -->
+    <section id="view-add" class="view">
+      <p class="hint">手动添加一个短语。只有「汉字短语」是必填的，其它留空时会尽量自动补全。</p>
+      <form id="add-form" class="add-form">
+        <label>汉字短语 *<input name="phrase" required placeholder="勉強" /></label>
+        <label>假名读音<input name="kana" placeholder="べんきょう" /></label>
+        <label>罗马音<input name="romaji" placeholder="benkyō（留空会自动从假名生成）" /></label>
+        <label>中文意思<input name="meaning_zh" placeholder="学习" /></label>
+        <label>易混淆提示<input name="trap_zh" placeholder="中文「勉强」=不情愿" /></label>
+        <label>例句（日）<input name="example" placeholder="毎日日本語を勉強します。" /></label>
+        <label>例句假名<input name="example_kana" placeholder="まいにち…" /></label>
+        <label>例句（中）<input name="example_zh" placeholder="我每天学习日语。" /></label>
+        <button type="submit" class="btn btn-primary">加入词库</button>
+      </form>
+      <div class="export-row">
+        <button class="btn" id="btn-export">导出我的词库 (JSON)</button>
+        <button class="btn" id="btn-reset-progress">重置练习进度</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="library.js"></script>
+  <script src="dict.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

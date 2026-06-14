@@ -1,0 +1,7 @@
+.DS_Store
+*.log
+
+# Build inputs/intermediates for the JMdict dictionary (regenerable via tools/).
+tools/build/
+# Raw uncompressed dictionary (25MB); the app ships the gzipped jmdict.json.gz.
+jmdict.json
